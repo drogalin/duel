@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Космическая Дуэль</title>
+<style>
+  :root{
+    --p1:#43e8ff; --p2:#ff7a3c; --bg0:#04060f; --bg1:#0a1024;
+    --neon:#43e8ff; --danger:#ff4d6d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;-webkit-text-size-adjust:100%;}
+  input,textarea{-webkit-user-select:text;user-select:text;touch-action:auto;}
+  body{
+    background:radial-gradient(circle at 50% 30%, var(--bg1), var(--bg0) 70%);
+    color:#dce7ff;
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{position:fixed; inset:0; height:100vh; height:100dvh; display:flex; align-items:center; justify-content:center;}
+  .screen{
+    position:absolute; inset:0; display:none; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:18px; text-align:center;
+  }
+  .screen.active{display:flex; animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+
+  h1.title{
+    font-size:clamp(30px,6vw,64px);
+    letter-spacing:.14em;
+    font-weight:800;
+    color:#eaf2ff;
+    text-shadow:0 0 12px var(--neon),0 0 36px rgba(67,232,255,.5);
+    margin-bottom:6px;
+  }
+  .subtitle{color:#7d90b8; letter-spacing:.4em; font-size:clamp(10px,1.6vw,14px); margin-bottom:34px; text-transform:uppercase;}
+
+  .btn{
+    --c:var(--neon);
+    cursor:pointer; user-select:none;
+    border:1px solid var(--c);
+    background:linear-gradient(180deg, rgba(67,232,255,.08), rgba(67,232,255,.02));
+    color:#eaf2ff;
+    padding:14px 30px; margin:8px; min-width:280px;
+    font-size:clamp(14px,2vw,18px); letter-spacing:.08em;
+    border-radius:10px;
+    transition:.18s transform,.18s box-shadow,.18s background;
+    box-shadow:0 0 0 rgba(67,232,255,0);
+  }
+  .btn:hover{transform:translateY(-2px); box-shadow:0 0 22px rgba(67,232,255,.45); background:linear-gradient(180deg, rgba(67,232,255,.18), rgba(67,232,255,.04));}
+  .btn:active{transform:translateY(0);}
+  .btn.sec{--c:#6a7aa0;}
+  .btn.small{min-width:auto; padding:10px 20px; font-size:14px;}
+
+  .grid-ships{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px;
+    width:min(1100px,96vw); margin-top:8px;
+  }
+  .ship-card{
+    border:1px solid rgba(120,150,220,.35);
+    border-radius:12px; padding:12px;
+    background:linear-gradient(180deg, rgba(20,30,60,.75), rgba(10,16,34,.75));
+    cursor:pointer; transition:.18s; text-align:left; position:relative; overflow:hidden;
+  }
+  .ship-card:hover{border-color:var(--neon); transform:translateY(-3px); box-shadow:0 8px 26px rgba(67,232,255,.25);}
+  .ship-card.sel{border-color:var(--neon); box-shadow:0 0 0 2px var(--neon) inset;}
+  .ship-card h3{font-size:16px; letter-spacing:.05em; margin-bottom:6px;}
+  .ship-card .role{font-size:11px; color:#7d90b8; letter-spacing:.15em; text-transform:uppercase;}
+  .ship-card canvas{width:74px; height:74px; float:right; margin-left:8px;}
+  .ship-card .stats{font-size:11px; color:#9fb2d8; margin-top:6px; line-height:1.5;}
+  .ship-card .desc{font-size:11.5px; color:#b8c8e8; margin-top:6px; line-height:1.45; border-top:1px dashed rgba(120,150,220,.25); padding-top:6px;}
+  .ship-card .desc b{color:var(--neon);}
+
+  .hud-note{margin-top:16px; color:#7d90b8; font-size:13px;}
+
+  /* Battle */
+  #screen-battle{padding:0; justify-content:flex-start; height:100vh; height:100dvh;}
+  #stage{position:absolute; inset:0; height:100vh; height:100dvh;}
+  canvas#game{display:block; width:100%; height:100%; touch-action:none;}
+  /* touch controls */
+  #touch-ui{position:fixed; inset:0; display:none; z-index:40; pointer-events:none; touch-action:none;}
+  #touch-ui.show{display:flex;}
+  #joy{position:absolute; width:116px; height:116px; margin:-58px 0 0 -58px; border-radius:50%; display:none; border:2px solid rgba(67,232,255,.5); background:radial-gradient(circle, rgba(67,232,255,.14), rgba(67,232,255,.03)); box-shadow:inset 0 0 22px rgba(67,232,255,.3), 0 0 18px rgba(67,232,255,.25);}
+  #joy.active{display:block;}
+  #joy-knob{position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #b6f4ff, #43e8ff 62%, #1b7f9c); box-shadow:0 0 20px rgba(67,232,255,.75);}
+  #btn-special{position:absolute; right:calc(20px + env(safe-area-inset-right,0px)); bottom:calc(24px + env(safe-area-inset-bottom,0px)); width:clamp(72px,20vw,96px); height:clamp(72px,20vw,96px); border-radius:50%; pointer-events:auto; cursor:pointer; color:#eaf2ff; font-weight:800; letter-spacing:.06em; font-size:clamp(13px,3.6vw,16px); border:2px solid var(--neon); background:radial-gradient(circle at 34% 30%, rgba(67,232,255,.35), rgba(67,232,255,.08) 70%); box-shadow:inset 0 0 20px rgba(67,232,255,.35), 0 0 22px rgba(67,232,255,.4); -webkit-tap-highlight-color:transparent; touch-action:none; user-select:none;}
+  #btn-special:active{transform:scale(.94); box-shadow:inset 0 0 26px rgba(67,232,255,.6), 0 0 26px rgba(67,232,255,.6);}
+  body.touch #controls{display:none;}
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:10px 16px; pointer-events:none; font-size:12px;
+  }
+  .hud-side{width:32%;}
+  .barwrap{height:12px; border:1px solid rgba(180,200,255,.4); border-radius:6px; overflow:hidden; background:rgba(0,0,0,.4); margin:3px 0;}
+  .barwrap.thin{height:8px;}
+  .bar{height:100%; width:100%; transition:width .12s linear;}
+  .hull-p1{background:linear-gradient(90deg,#1fb6d8,#43e8ff);}
+  .hull-p2{background:linear-gradient(90deg,#ff9a4d,#ff5a2c);}
+  .en{background:linear-gradient(90deg,#8a7bff,#c0b3ff);}
+  .hud-name{letter-spacing:.1em; font-weight:700;}
+  #p1-name{color:#43e8ff;}
+  #p2-name{color:#ff7a3c;}
+  .hud-right{text-align:right;}
+  #scoreboard{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    font-size:26px; font-weight:800; letter-spacing:.15em; color:#eaf2ff;
+    text-shadow:0 0 12px var(--neon); pointer-events:none; text-align:center;
+  }
+  #scoreboard small{display:block; font-size:10px; letter-spacing:.3em; color:#7d90b8; font-weight:400;}
+  #controls{
+    position:absolute; bottom:0; left:0; right:0;
+    display:flex; justify-content:space-between; padding:8px 16px;
+    font-size:11px; color:#8ea2c8; pointer-events:none;
+  }
+  #controls b{color:#cfe0ff;}
+  .center-msg{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-size:clamp(30px,7vw,72px); font-weight:800; letter-spacing:.1em;
+    text-shadow:0 0 24px currentColor; opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  .big-title{font-size:clamp(34px,8vw,80px); font-weight:800; letter-spacing:.12em; margin-bottom:10px;}
+  .win{color:#43e8ff; text-shadow:0 0 30px #43e8ff;}
+  .lose{color:#ff5a6e; text-shadow:0 0 30px #ff5a6e;}
+  .row{display:flex; flex-wrap:wrap; justify-content:center;}
+
+  /* Network */
+  .net-status{font-size:clamp(15px,2.4vw,20px); letter-spacing:.08em; color:#eaf2ff; text-shadow:0 0 14px rgba(67,232,255,.5); margin:6px 0 20px;}
+  .net-status.ok{color:#5cffb0; text-shadow:0 0 14px rgba(92,255,176,.5);}
+  .net-status.bad{color:#ff8fa3; text-shadow:0 0 14px rgba(255,77,109,.55);}
+  .net-box{display:flex; flex-direction:column; align-items:center; gap:10px; width:min(640px,92vw);}
+  .net-input{width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(120,150,220,.4); background:rgba(10,16,34,.85); color:#bcd0f0; font-size:13px; text-align:center; outline:none;}
+  .net-input:focus{border-color:var(--neon); box-shadow:0 0 16px rgba(67,232,255,.3);}
+  .net-hint{color:#7d90b8; font-size:12px; line-height:1.5; max-width:560px;}
+  .net-code{color:var(--neon); font-weight:700; letter-spacing:.06em;}
+  .lobby-status{margin:2px 0 18px; font-size:clamp(14px,2.2vw,19px); letter-spacing:.03em; color:#bcd0f0; text-align:center; line-height:1.65; max-width:780px;}
+  .lobby-status b{color:var(--neon);}
+  .lobby-actions{display:none; justify-content:center; align-items:center; margin:0 0 14px; width:100%;}
+  #btn-ready{width:min(360px,86vw); min-width:auto; margin:0; padding:14px 24px; font-size:clamp(15px,2.4vw,19px); font-weight:800; letter-spacing:.14em;}
+  #btn-ready:disabled{opacity:.5; cursor:default; transform:none; box-shadow:none;}
+  .net-btns{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%;}
+  .net-btns .btn{margin:0; flex:1 1 150px;}
+  .net-tip{color:#ff8fa3; font-size:12px; line-height:1.45; min-height:15px; text-align:center;}
+  .menu-join{display:flex; justify-content:center; margin:-2px 0 6px;}
+  .menu-join-link{background:none; border:none; cursor:pointer; color:#7d90b8; font-size:13px; letter-spacing:.05em;
+    text-decoration:underline; text-underline-offset:3px; padding:4px 8px; font-family:inherit; transition:color .18s;}
+  .menu-join-link:hover{color:var(--neon);}
+  #net-join-wrap{display:none; flex-direction:column; align-items:center; gap:10px; width:min(640px,92vw);}
+  #net-join-tip{min-height:15px;}
+  .net-link-wrap{display:flex; flex-direction:column; align-items:center; gap:6px; width:100%;}
+  .net-link-cap{color:#7d90b8; font-size:12px; letter-spacing:.04em; text-align:center;}
+  .net-link-a{display:block; width:100%; box-sizing:border-box; padding:12px 14px; border-radius:10px;
+    border:1px solid rgba(67,232,255,.55); background:rgba(10,16,34,.85); color:var(--neon);
+    font-size:14px; font-weight:700; text-align:center; text-decoration:underline; text-underline-offset:3px; letter-spacing:.02em;
+    word-break:break-all; overflow-wrap:anywhere; text-shadow:0 0 12px rgba(67,232,255,.45);
+    box-shadow:0 0 16px rgba(67,232,255,.22); cursor:pointer; -webkit-tap-highlight-color:rgba(67,232,255,.25);
+    -webkit-user-select:text; user-select:text; transition:box-shadow .18s, border-color .18s, color .18s;}
+  .net-link-a:hover, .net-link-a:focus, .net-link-a:active{border-color:var(--neon); color:#fff;
+    box-shadow:0 0 24px rgba(67,232,255,.5); outline:none;}
+  .net-link-a .net-link-ic{display:inline-block; margin-right:4px;}
+  #net-qr-wrap{display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:4px;}
+  #net-qr{width:200px; height:200px; border-radius:10px; background:#fff; box-shadow:0 0 22px rgba(67,232,255,.3);}
+  #net-qr-img{width:200px; height:200px; border-radius:10px; display:none; box-shadow:0 0 22px rgba(67,232,255,.3);}
+  .net-qr-cap{color:#7d90b8; font-size:12px; letter-spacing:.04em;}
+  #ping{position:absolute; left:12px; bottom:34px; z-index:6; font-size:11px; letter-spacing:.08em; font-weight:700; color:#9fb2d4; opacity:.85; pointer-events:none; text-shadow:0 0 10px currentColor;}
+  #result-series{margin-top:6px; color:#9fb2d4; letter-spacing:.1em; font-size:clamp(13px,2vw,17px); min-height:20px;}
+  .overlay{position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(2,6,18,.85); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);}
+  .overlay.show{display:flex;}
+  .modal{width:min(540px,94vw); max-height:88vh; overflow-y:auto; background:linear-gradient(180deg, rgba(18,26,52,.98), rgba(8,12,26,.98)); border:1px solid rgba(67,232,255,.45); border-radius:16px; padding:22px 20px; box-shadow:0 0 44px rgba(67,232,255,.28); text-align:center;}
+  .modal-title{font-size:clamp(17px,3vw,24px); letter-spacing:.08em; color:#eaf2ff; margin-bottom:12px; text-shadow:0 0 16px rgba(67,232,255,.5);}
+  .modal-text{color:#bcd0f0; font-size:14px; line-height:1.55; margin-bottom:12px;}
+  .modal-text.small{font-size:12px; color:#7d90b8; margin-bottom:6px;}
+  .modal-row{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:8px 0;}
+  .modal-row .btn{margin:0; flex:1 1 150px;}
+
+  @media (max-width:900px){ .grid-ships{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){
+    .grid-ships{grid-template-columns:1fr;}
+    #hud{padding:6px 10px; font-size:clamp(9px,2.6vw,12px); gap:4px;}
+    .hud-side{width:38%;}
+    #scoreboard{font-size:clamp(16px,5vw,24px);}
+    #scoreboard small{font-size:clamp(7px,2vw,10px); letter-spacing:.15em;}
+    .barwrap{height:9px;}
+    .barwrap.thin{height:6px;}
+    #controls{font-size:9px; padding:6px 10px;}
+  }
+  @media (max-height:520px) and (orientation:landscape){
+    #hud{padding:5px 12px; font-size:clamp(9px,1.6vw,12px);}
+    .barwrap{height:8px;}
+    .barwrap.thin{height:5px;}
+    #scoreboard{font-size:clamp(14px,3.2vw,22px);}
+  }
+  @media (max-width:900px){
+    #screen-select1, #screen-select2{justify-content:flex-start; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding-top:26px; padding-bottom:30px;}
+    .ship-card{touch-action:manipulation; padding:14px;}
+  }
+  @media (max-width:560px){
+    .subtitle{margin-bottom:18px;}
+    .net-status{margin:4px 0 14px;}
+    .net-btns .btn, .modal-row .btn{flex:1 1 100%;}
+    #screen-net{overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y; padding:16px 14px 26px;}
+  }
+  @media (max-height:640px){
+    h1.title{font-size:clamp(22px,5vw,40px);}
+    .subtitle{margin-bottom:12px;}
+    .btn{padding:11px 22px;}
+  }
+</style>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>if(typeof Peer==='undefined'){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js';document.head.appendChild(s);}</script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>if(typeof QRCode==='undefined'){var q=document.createElement('script');q.src='https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js';document.head.appendChild(q);}</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- 1. MENU -->
+  <section id="screen-menu" class="screen active">
+    <h1 class="title">КОСМИЧЕСКАЯ ДУЭЛЬ</h1>
+    <div class="subtitle">Super Melee · 1 на 1</div>
+    <div class="row">
+      <button class="btn" onclick="Game.startMode('ai')">1 игрок (против ИИ)</button>
+      <button class="btn" onclick="Game.startMode('vs')">2 игрока (на одной клавиатуре)</button>
+      <button class="btn" onclick="Net.enter()">Игра по интернету</button>
+    </div>
+    <div class="menu-join"><button class="menu-join-link" type="button" onclick="Net.enterJoin()">Войти по коду или ссылке</button></div>
+    <div class="hud-note">Соберите арену: выберите корабль и в бой. Матч до 2 побед.</div>
+  </section>
+
+  <!-- 2. SHIP SELECT P1 -->
+  <section id="screen-select1" class="screen">
+    <h1 class="title" style="font-size:clamp(22px,4vw,38px)">ВЫБОР КОРАБЛЯ · ИГРОК 1</h1>
+    <div class="subtitle" id="select1-sub">Выберите свой корабль</div>
+    <div class="lobby-status" id="lobby" style="display:none"></div>
+    <div class="lobby-actions" id="lobby-actions" style="display:none"><button class="btn" id="btn-ready" type="button" onclick="Game.ready()">ГОТОВ</button></div>
+    <div class="grid-ships" id="grid1"></div>
+  </section>
+
+  <!-- 3. SHIP SELECT P2 / AI -->
+  <section id="screen-select2" class="screen">
+    <h1 class="title" style="font-size:clamp(22px,4vw,38px)" id="select2-title">ВЫБОР КОРАБЛЯ · ИГРОК 2</h1>
+    <div class="subtitle" id="select2-sub">Выберите корабль противника</div>
+    <div class="grid-ships" id="grid2"></div>
+  </section>
+
+  <!-- 4. BATTLE -->
+  <section id="screen-battle" class="screen">
+    <div id="stage">
+      <canvas id="game"></canvas>
+    </div>
+    <div id="hud">
+      <div class="hud-side">
+        <div class="hud-name" id="p1-name">ИГРОК 1</div>
+        <div class="barwrap"><div class="bar hull-p1" id="p1-hull"></div></div>
+        <div class="barwrap thin"><div class="bar en" id="p1-en"></div></div>
+      </div>
+      <div id="scoreboard">0 : 0<small>СЧЁТ В МАТЧЕ</small></div>
+      <div class="hud-side hud-right">
+        <div class="hud-name" id="p2-name">ИГРОК 2</div>
+        <div class="barwrap"><div class="bar hull-p2" id="p2-hull"></div></div>
+        <div class="barwrap thin"><div class="bar en" id="p2-en"></div></div>
+      </div>
+    </div>
+    <div class="center-msg" id="center-msg"></div>
+    <div id="ping" style="display:none">PING …</div>
+    <div id="controls">
+      <div id="ctrl-p1"></div>
+      <div id="ctrl-p2" style="text-align:right"></div>
+    </div>
+    <div id="touch-ui">
+      <div id="joy"><div id="joy-knob"></div></div>
+      <button id="btn-special" type="button">СПЕЦ</button>
+    </div>
+  </section>
+
+  <!-- 5. RESULT -->
+  <section id="screen-result" class="screen">
+    <div class="big-title" id="result-title">Победа!</div>
+    <div class="subtitle" id="result-sub">Матч завершён</div>
+    <div id="result-series"></div>
+    <div class="row">
+      <button class="btn" id="btn-rematch" onclick="Game.rematch()">В бой снова</button>
+      <button class="btn sec" onclick="Game.toMenu()">В меню</button>
+    </div>
+  </section>
+
+  <!-- 6. NETWORK -->
+  <section id="screen-net" class="screen">
+    <h1 class="title" id="net-title" style="font-size:clamp(24px,4.5vw,46px)">СОЗДАНИЕ ИГРЫ</h1>
+    <div class="subtitle" id="net-sub">ВЫ — ХОСТ</div>
+    <div id="net-status" class="net-status">Ожидаем соперника…</div>
+    <div id="net-host" class="net-box">
+      <input id="net-link" class="net-input" readonly>
+      <div class="net-link-wrap">
+        <div class="net-link-cap">Ссылка на лобби (нажмите, чтобы открыть)</div>
+        <a id="net-link-a" class="net-link-a" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <div class="net-hint" id="net-hint-page">Открывайте и делитесь ссылкой прямо со страницы игры — она запускается в браузере, без встроенного просмотра.</div>
+      </div>
+      <div class="net-btns">
+        <button class="btn small" id="net-copy" type="button" onclick="Net.copy()">СКОПИРОВАТЬ</button>
+        <button class="btn small" id="net-copy-code" type="button" onclick="Net.copyCode()">КОПИРОВАТЬ КОД</button>
+        <button class="btn small" id="net-share" type="button" onclick="Net.share()">ПОДЕЛИТЬСЯ</button>
+      </div>
+      <div class="net-hint" id="net-hint"></div>
+      <div class="net-tip" id="net-tip"></div>
+      <div id="net-qr-wrap">
+        <canvas id="net-qr" width="200" height="200"></canvas>
+        <div class="net-qr-cap" id="net-qr-cap">Наведите камеру — вы в лобби</div>
+      </div>
+    </div>
+    <div id="net-join-wrap">
+      <input id="net-join" class="net-input" type="text" placeholder="вставьте ссылку или код комнаты" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="net-btns">
+        <button class="btn small" type="button" onclick="Net.joinFromUI()">ВОЙТИ</button>
+      </div>
+      <div class="net-tip" id="net-join-tip"></div>
+    </div>
+    <div class="row"><button class="btn sec" onclick="Net.toMenu()">В меню</button></div>
+  </section>
+
+  <!-- 7. RTC / TELEGRAM BANNER -->
+  <div id="rtc-banner" class="overlay">
+    <div class="modal">
+      <h2 class="modal-title">СОЕДИНЕНИЕ НЕДОСТУПНО</h2>
+      <p class="modal-text">Ваш браузер не поддерживает соединение. Откройте игру в Chrome или Safari.</p>
+      <div class="modal-row">
+        <button class="btn small" type="button" onclick="Net.openIn()">ОТКРЫТЬ В CHROME/SAFARI</button>
+        <button class="btn small sec" type="button" onclick="Net.copy()">СКОПИРОВАТЬ ССЫЛКУ</button>
+      </div>
+      <p class="modal-text small">Скопируйте ссылку и вставьте её в адресную строку Chrome или Safari.</p>
+      <div class="modal-row">
+        <button class="btn small sec" type="button" onclick="Net.hideBanner()">ПОНЯТНО</button>
+        <button class="btn small sec" type="button" onclick="Net.toMenu()">В МЕНЮ</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ===================================================================
+   КОСМИЧЕСКАЯ ДУЭЛЬ — Super Melee (Star Control 2 style)
+   Screens: menu -> ship select (P1) -> ship select (P2/AI) -> battle -> result
+   Namespace Game + screen router + full canvas duel engine.
+=================================================================== */
+
+let online = false, netRole = 'host';
+let matchSeries = 0;
+const isTelegram = /Telegram/i.test(navigator.userAgent);
+const rtcOk = typeof RTCPeerConnection !== 'undefined';
+
+const YM_ID = 0;
+function track(name){ try{ if(YM_ID>0 && window.ym){ window.ym(YM_ID,'reachGoal',name); } }catch(e){} }
+(function(){
+  if(!(YM_ID>0)) return;
+  try{
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a);})(window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
+    window.ym(YM_ID,'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true});
+  }catch(e){}
+})();
+
+const SFX = (function(){
+  let ac = null;
+  function ctx(){
+    try{
+      if(!ac){ const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; ac = new AC(); }
+      if(ac.state === 'suspended'){ try{ ac.resume(); }catch(e){} }
+      return ac;
+    }catch(e){ return null; }
+  }
+  function tone(freq, dur, type, gain, when, to){
+    const c = ctx(); if(!c) return;
+    const t0 = c.currentTime + (when||0);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type||'square'; o.frequency.setValueAtTime(freq, t0);
+    if(to) o.frequency.exponentialRampToValueAtTime(Math.max(1,to), t0+dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }
+  function noise(dur, gain, f0, f1){
+    const c = ctx(); if(!c) return;
+    const t0 = c.currentTime, n = Math.max(1, Math.floor(c.sampleRate*dur));
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const flt = c.createBiquadFilter(); flt.type = 'lowpass';
+    flt.frequency.setValueAtTime(f0||900, t0);
+    if(f1) flt.frequency.exponentialRampToValueAtTime(Math.max(60,f1), t0+dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    src.connect(flt); flt.connect(g); g.connect(c.destination); src.start(t0);
+  }
+  const last = {};
+  const MIN = { shot:0.045, hit:0.03, boom:0.05, win:0.1 };
+  function play(kind){
+    try{
+      const c = ctx(); if(!c) return;
+      const now = c.currentTime, m = MIN[kind]||0.03;
+      if(last[kind]!==undefined && now - last[kind] < m) return;
+      last[kind] = now;
+      switch(kind){
+        case 'shot': tone(900, 0.09, 'square', 0.05, 0, 240); break;
+        case 'hit': tone(300, 0.05, 'square', 0.06, 0, 150); break;
+        case 'boom': noise(0.5, 0.16, 1000, 120); tone(90, 0.42, 'sawtooth', 0.045, 0, 38); break;
+        case 'win': [523,659,784,1047].forEach((f,i)=> tone(f, 0.16, 'triangle', 0.055, i*0.1)); break;
+      }
+    }catch(e){}
+  }
+  function arm(){
+    ctx();
+    ['pointerdown','touchstart','keydown'].forEach(ev=> window.removeEventListener(ev, arm, true));
+  }
+  ['pointerdown','touchstart','keydown'].forEach(ev=> window.addEventListener(ev, arm, true));
+  return { play, unlock: ctx };
+})();
+function sfx(kind){ try{ SFX.play(kind); }catch(e){} }
+
+const Game = (function(){
+  const el = id => document.getElementById(id);
+
+  // ---- screen router ----
+  function show(name){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    el('screen-'+name).classList.add('active');
+    updateTouchVisibility(name);
+    if(name==='battle') resize();
+  }
+  function updateTouchVisibility(name){
+    const t = el('touch-ui'); if(!t) return;
+    const on = isTouch && name==='battle' && mode!=='vs';
+    t.classList.toggle('show', on);
+    if(!on) resetJoystick();
+  }
+
+  // ---- canvas sizing (DPR aware) ----
+  let canvas, ctx, W = 0, H = 0, DPR = 1;
+  function resize(){
+    if(!canvas) return;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    W = Math.max(300, Math.floor(r.width));
+    H = Math.max(300, Math.floor(r.height));
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    if(window.__onResize) window.__onResize(W,H);
+  }
+
+  /* ============================================================
+     SHIPS — unique stat blocks (key feature)
+     All distances are in arena units per second where relevant.
+  ============================================================ */
+  const SHIPS = [
+    {
+      id:'titan', name:'Титан', role:'Крейсер', shape:'cruiser',
+      hull:100, radius:18, maxSpeed:300, accel:400, turnRate:3.1, drag:0.62,
+      bullet:{ dmg:6, speed:560, radius:3.4, cd:0.15, energy:2.6, life:1.15 },
+      special:{ name:'Тройной залп', type:'fan3', energy:22, cd:4.0,
+        desc:'Веер из 3 пуль вперёд.' },
+      blurb:'Быстрые прямые пули, хорошая скорострельность.',
+      color:'#43e8ff'
+    },
+    {
+      id:'vortex', name:'Вихрь', role:'Разведчик', shape:'scout',
+      hull:70, radius:15, maxSpeed:430, accel:520, turnRate:4.9, drag:0.55,
+      bullet:{ dmg:4, speed:720, radius:2.8, cd:0.10, energy:2.0, life:0.95 },
+      special:{ name:'Гипер-рывок', type:'dash', energy:20, cd:3.4,
+        desc:'Рывок вперёд и краткая неуязвимость.' },
+      blurb:'Слабые быстрые импульсы, огромная скорость.',
+      color:'#43e8ff'
+    },
+    {
+      id:'bastion', name:'Бастион', role:'Дредноут', shape:'dread',
+      hull:160, radius:24, maxSpeed:210, accel:260, turnRate:1.8, drag:0.72,
+      bullet:{ dmg:16, speed:380, radius:6.5, cd:0.55, energy:8, life:1.7 },
+      special:{ name:'Энергощит', type:'shield', energy:30, cd:8.0,
+        desc:'Щит на 3 сек, поглощает урон.' },
+      blurb:'Тяжёлые снаряды с большим уроном, медленный.',
+      color:'#43e8ff'
+    },
+    {
+      id:'wasp', name:'Оса', role:'Гарпия', shape:'harpy',
+      hull:85, radius:16, maxSpeed:270, accel:380, turnRate:3.6, drag:0.66,
+      bullet:{ dmg:10, speed:330, radius:5, cd:0.75, energy:6.5, life:3.2, homing:150, turn:2.6 },
+      special:{ name:'Залп', type:'fanMissile', energy:28, cd:6.0,
+        desc:'4 самонаводящиеся ракеты веером.' },
+      blurb:'Самонаводящиеся ракеты, летят в цель.',
+      color:'#43e8ff'
+    },
+    {
+      id:'nova', name:'Нова', role:'Феникс', shape:'phoenix',
+      hull:90, radius:16, maxSpeed:380, accel:460, turnRate:4.0, drag:0.6,
+      bullet:{ dmg:7, speed:610, radius:4, cd:0.20, energy:3.4, life:1.25 },
+      special:{ name:'Кольцевой взрыв', type:'nova', energy:26, cd:5.0,
+        desc:'Кольцо пуль во все стороны.' },
+      blurb:'Пули среднего урона, лёгкий и верткий.',
+      color:'#43e8ff'
+    },
+    {
+      id:'harpoon', name:'Гарпун', role:'Снайпер', shape:'sniper',
+      hull:80, radius:16, maxSpeed:280, accel:380, turnRate:3.3, drag:0.64,
+      bullet:{ dmg:12, speed:950, radius:3.2, cd:0.45, energy:6, life:1.65, pierce:1 },
+      special:{ name:'Точный выстрел', type:'snipe', energy:24, cd:5.0,
+        desc:'Очень быстрый мощный снаряд на большую дистанцию.' },
+      blurb:'Дальнобойный пробивающий выстрел.',
+      color:'#43e8ff'
+    }
+  ];
+  const shipById = id => SHIPS.find(s => s.id === id);
+
+  /* ---- polygon shapes (local, nose points +x) ---- */
+  const SHAPES = {
+    cruiser:[[1,0],[-0.55,0.62],[-0.25,0.28],[-0.95,0.5],[-0.75,0],[-0.95,-0.5],[-0.25,-0.28],[-0.55,-0.62]],
+    scout:[[1.25,0],[-0.75,0.55],[-0.35,0],[-0.75,-0.55]],
+    dread:[[0.9,0],[-0.05,0.85],[-0.9,0.9],[-0.75,0.25],[-0.75,-0.25],[-0.9,-0.9],[-0.05,-0.85]],
+    harpy:[[0.95,0],[-0.35,0.85],[-0.05,0.15],[-0.85,0.35],[-0.35,0],[-0.85,-0.35],[-0.05,-0.15],[-0.35,-0.85]],
+    phoenix:[[1.0,0],[-0.35,0.7],[-0.9,0.25],[-0.55,0],[-0.9,-0.25],[-0.35,-0.7]],
+    sniper:[[1.45,0],[0.2,0.35],[-0.7,0.55],[-0.55,0],[-0.7,-0.55],[0.2,-0.35]]
+  };
+
+  /* Draw an oriented neon ship. color = '#rrggbb'. */
+  function drawShipShape(g, shape, x, y, ang, scale, color, glow){
+    const pts = SHAPES[shape] || SHAPES.cruiser;
+    g.save();
+    g.translate(x,y); g.rotate(ang); g.scale(scale,scale);
+    g.beginPath();
+    for(let i=0;i<pts.length;i++){
+      const p = pts[i];
+      if(i===0) g.moveTo(p[0],p[1]); else g.lineTo(p[0],p[1]);
+    }
+    g.closePath();
+    g.fillStyle = 'rgba(8,14,30,0.85)';
+    g.fill();
+    g.lineWidth = 0.13;
+    g.strokeStyle = color;
+    if(glow){ g.shadowColor = color; g.shadowBlur = 14; }
+    g.stroke();
+    g.shadowBlur = 0;
+    // nose highlight
+    g.beginPath();
+    g.arc(pts[0][0]*0.6, pts[0][1]*0.6, 0.1, 0, Math.PI*2);
+    g.fillStyle = color; g.fill();
+    g.restore();
+  }
+
+  /* ============================================================
+     MATCH STATE
+  ============================================================ */
+  let mode = 'ai';
+  let pick1 = null, pick2 = null;
+  let wins1 = 0, wins2 = 0;
+  let myReady = false, oppReady = false, lobbyStarted = false;
+  let netIn = { r:0, t:false, f:false, s:false, tc:0 };
+  let netTimer = 0, fxQueue = [], roundNo = 0, netRd = 0, netBulletCount = 0;
+
+  function statPct(v, max){ return Math.max(8, Math.min(100, Math.round(v/max*100))); }
+
+  function star(v, max, n=5){
+    const r = Math.round(v/max*n);
+    let s='';
+    for(let i=0;i<n;i++) s += i<r ? '★' : '☆';
+    return s;
+  }
+
+  function buildSelectGrid(gridEl, side){
+    gridEl.innerHTML = '';
+    const col = side===1 ? '#43e8ff' : '#ff7a3c';
+    SHIPS.forEach(ship => {
+      const card = document.createElement('div');
+      card.className = 'ship-card';
+      const speedTxt = star(ship.maxSpeed, 430);
+      const turnTxt = star(ship.turnRate, 4.9);
+      const hullTxt = star(ship.hull, 160);
+      card.innerHTML =
+        '<canvas></canvas>'+
+        '<h3 style="color:'+col+'">'+ship.name+'</h3>'+
+        '<div class="role">'+ship.role+'</div>'+
+        '<div class="stats">Корпус '+ship.hull+' &nbsp;'+hullTxt+'<br>'+
+          'Скорость '+speedTxt+' &nbsp; Поворот '+turnTxt+'</div>'+
+        '<div class="desc"><b>Оружие:</b> '+ship.blurb+'<br>'+
+          '<b>Спец:</b> '+ship.special.name+' — '+ship.special.desc+'</div>';
+      // icon
+      const cv = card.querySelector('canvas');
+      const dpr = Math.min(window.devicePixelRatio||1,2);
+      cv.width = 74*dpr; cv.height = 74*dpr;
+      const g = cv.getContext('2d');
+      g.setTransform(dpr,0,0,dpr,0,0);
+      drawShipShape(g, ship.shape, 37, 37, -Math.PI/2, 26, col, true);
+      card.onclick = () => pickShip(side, ship.id);
+      gridEl.appendChild(card);
+    });
+  }
+
+  function pickShip(side, id){
+    if(mode==='online'){
+      if(side===1){ pick1 = id; Net.send({t:'pick', ship:id}); updateLobby(); }
+      return;
+    }
+    if(side===1){
+      pick1 = id;
+      show('select2');
+      if(mode==='ai'){
+        document.getElementById('select2-title').textContent = 'ВЫБОР КОРАБЛЯ · ПРОТИВНИК (ИИ)';
+        document.getElementById('select2-sub').textContent = 'Выберите корабль противника';
+      } else {
+        document.getElementById('select2-title').textContent = 'ВЫБОР КОРАБЛЯ · ИГРОК 2';
+        document.getElementById('select2-sub').textContent = 'Выберите свой корабль';
+      }
+    } else {
+      pick2 = id;
+      wins1 = 0; wins2 = 0;
+      show('battle');
+      if(api.beginMatch) api.beginMatch();
+    }
+  }
+
+  /* ============================================================
+     BATTLE ENGINE — core (physics, wrap, bullets, HUD, round flow)
+  ============================================================ */
+  const ENERGY_REGEN = 12;
+  let ships = [];              // [p1, p2]
+  let bullets = [];
+  let particles = [];
+  let rings = [];
+  let stars = [];
+  let shake = 0, flash = 0;
+  let roundState = 'fight';    // 'countdown' | 'fight' | 'over'
+  let roundTimer = 0, cdT = 0, lastN = null;
+  let lastT = 0, rafId = null, running = false;
+  let centerTimer = 0;
+
+  let pingMs = -1, pingTimer = 0;
+  function vibrate(p){ try{ if(!isTouch) return; if(navigator && typeof navigator.vibrate === 'function') navigator.vibrate(p); }catch(e){} }
+  function isLocalShip(s){
+    if(!s) return false;
+    if(mode==='vs') return true;
+    if(mode==='online') return (netRole==='host' && s.side===1) || (netRole==='guest' && s.side===2);
+    return s.side===1;
+  }
+  function updatePing(){
+    const p = el('ping'); if(!p) return;
+    if(!online){ p.style.display='none'; return; }
+    p.style.display = 'block';
+    if(!(pingMs>=0)){ p.textContent = 'PING …'; p.style.color = '#9fb2d4'; return; }
+    const v = Math.round(pingMs);
+    p.textContent = 'PING ' + v + ' мс';
+    p.style.color = v<80 ? '#5cffb0' : (v<150 ? '#ffd166' : '#ff6b6b');
+  }
+
+  // ---- input ----
+  const keys = {};
+  const P1K = { L:'KeyA', R:'KeyD', T:'KeyW', F:['Space'], S:['ShiftLeft'] };
+  const P2K = { L:'ArrowLeft', R:'ArrowRight', T:'ArrowUp', F:['Enter','ShiftRight'], S:['Slash','ControlRight'] };
+  const BLOCK = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Slash','Enter'];
+  window.addEventListener('keydown', e=>{ keys[e.code]=true; if(BLOCK.includes(e.code)) e.preventDefault(); });
+  window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+  window.addEventListener('blur', ()=>{ for(const k in keys) keys[k]=false; });
+
+  // ---- touch input (mobile) ----
+  const isTouch = (window.matchMedia && matchMedia('(pointer:coarse)').matches) || ('ontouchstart' in window);
+  const touchInput = { aim:0, active:false, thrust:false, fire:false, special:false };
+  let joy = { active:false, id:null, bx:0, by:0 };
+  const JOY_R = 58;
+  function setKnob(dx,dy){ const k = el('joy-knob'); if(k) k.style.transform='translate('+dx+'px,'+dy+'px)'; }
+  function resetJoystick(){
+    joy.active=false; joy.id=null;
+    const j = el('joy'); if(j) j.classList.remove('active');
+    setKnob(0,0);
+    touchInput.active=false; touchInput.thrust=false; touchInput.special=false;
+  }
+  function joyStart(x,y,id){
+    const pad = JOY_R + 12, bw = window.innerWidth, bh = window.innerHeight;
+    const bx = Math.max(pad, Math.min(bw-pad, x));
+    const by = Math.max(pad, Math.min(bh-pad, y));
+    joy.active=true; joy.id=id; joy.bx=bx; joy.by=by;
+    const j = el('joy');
+    if(j){ j.style.left=bx+'px'; j.style.top=by+'px'; j.classList.add('active'); }
+    setKnob(0,0);
+  }
+  function joyMove(x,y){
+    if(!joy.active) return;
+    let dx = x-joy.bx, dy = y-joy.by;
+    const len = Math.hypot(dx,dy);
+    if(len > JOY_R){ dx = dx/len*JOY_R; dy = dy/len*JOY_R; }
+    setKnob(dx,dy);
+    touchInput.aim = Math.atan2(dy,dx);
+    touchInput.active = len > 10;
+    touchInput.thrust = len > 10;
+  }
+  function battleReady(){ return el('screen-battle').classList.contains('active') && mode!=='vs'; }
+  function onTouchDown(e){
+    if(!isTouch || !battleReady()) return;
+    if(e.pointerType && e.pointerType!=='touch') return;
+    if(e.clientX < window.innerWidth*0.5){
+      if(joy.active) return;
+      joyStart(e.clientX, e.clientY, e.pointerId);
+      if(e.cancelable) e.preventDefault();
+    }
+  }
+  function onTouchMove(e){
+    if(!joy.active || e.pointerId!==joy.id) return;
+    joyMove(e.clientX, e.clientY);
+    if(e.cancelable) e.preventDefault();
+  }
+  function onTouchUp(e){
+    if(joy.active && e.pointerId===joy.id){ resetJoystick(); if(e.cancelable) e.preventDefault(); }
+  }
+
+  const held = list => list.some(k=>keys[k]);
+  function inputFor(ship){
+    if(mode==='online' && netRole==='host' && ship.side===2) return { rotate:netIn.r, thrust:!!netIn.t, fire:!!netIn.f, special:!!netIn.s, touch:!!netIn.tc };
+    if(ship.side===2 && mode==='ai') return aiInput(ship);
+    const isLocal = mode==='online' ? (netRole==='host' && ship.side===1) : (mode==='ai' && ship.side===1);
+    if(isTouch && isLocal && mode!=='vs'){
+      const out = { rotate:0, thrust:false, fire:false, special:touchInput.special, touch:true };
+      if(touchInput.active){
+        const d = normAngle(touchInput.aim - ship.angle);
+        out.rotate = Math.abs(d)>0.06 ? Math.sign(d) : 0;
+        out.thrust = touchInput.thrust;
+      }
+      return out;
+    }
+    const m = ship.side===1 ? P1K : P2K;
+    return {
+      rotate:(keys[m.L]?-1:0)+(keys[m.R]?1:0),
+      thrust:!!keys[m.T],
+      fire:held(m.F),
+      special:held(m.S),
+      touch:false
+    };
+  }
+  // ---- AI opponent (side 2) ----
+  function normAngle(a){ while(a>Math.PI) a-=Math.PI*2; while(a<-Math.PI) a+=Math.PI*2; return a; }
+  function aiInput(ship){
+    const enemy = ships[0]===ship ? ships[1] : ships[0];
+    const out = { rotate:0, thrust:false, fire:false, special:false };
+    if(!enemy || !enemy.alive || !ship.alive) return out;
+
+    const now = performance.now()/1000;
+    ship._ai = ship._ai || { next:0, thrust:false, special:false, strafe:1 };
+    const ai = ship._ai;
+
+    const dist = Math.hypot(enemy.x-ship.x, enemy.y-ship.y);
+    const bs = ship.spec.bullet.speed;
+
+    // aim with lead prediction
+    const tLead = Math.min(0.6, dist / Math.max(220, bs)) * 0.9;
+    const px = enemy.x + enemy.vx*tLead;
+    const py = enemy.y + enemy.vy*tLead;
+    let diff = normAngle(Math.atan2(py-ship.y, px-ship.x) - ship.angle);
+
+    // periodic tactical decisions
+    if(now >= ai.next){
+      ai.next = now + 0.22 + Math.random()*0.35;
+      const ideal = ship.spec.bullet.homing ? 250 : 300;
+      if(dist > ideal*1.15) ai.thrust = Math.abs(diff) < 1.15;
+      else if(dist < ideal*0.55) ai.thrust = false;
+      else ai.thrust = Math.random() < 0.2;
+      // dodge if enemy aiming at us & close
+      const eDiff = Math.abs(normAngle(Math.atan2(ship.y-enemy.y, ship.x-enemy.x) - enemy.angle));
+      if(dist < 340 && eDiff < 0.32 && Math.random()<0.55) ai.thrust = true;
+      if(Math.random()<0.15) ai.strafe *= -1;
+      // special decision
+      const sp = ship.spec.special;
+      ai.special = false;
+      if(ship.specCd<=0 && ship.energy >= sp.energy){
+        if(sp.type==='shield'){
+          if(ship.hull < ship.maxHull*0.62 && dist < 400) ai.special = Math.random()<0.6;
+        } else if(sp.type==='dash'){
+          if(dist > 340) ai.special = Math.random()<0.5;
+          else if(dist < 170) ai.special = Math.random()<0.25;
+        } else {
+          if(Math.abs(diff) < 0.5 && dist < 640) ai.special = Math.random()<0.35;
+        }
+      }
+    }
+
+    // rotate toward target
+    const dead = 0.05 + Math.min(0.24, ship.spec.turnRate*0.02);
+    if(diff > dead) out.rotate = 1;
+    else if(diff < -dead) out.rotate = -1;
+    out.thrust = ai.thrust && Math.abs(diff) < 1.4;
+
+    // fire when aligned & within range
+    const range = bs * ship.spec.bullet.life * 0.95;
+    if(Math.abs(diff) < 0.3 && dist < range) out.fire = true;
+    if(dist < 150 && Math.abs(diff) < 1.0) out.fire = true;
+
+    // special: single-frame pulse (edge-detected upstream)
+    out.special = ai.special;
+    ai.special = false;
+    return out;
+  }
+
+  // ---- wrap helpers ----
+  function wrapPos(o){
+    if(o.x < 0) o.x += W; else if(o.x >= W) o.x -= W;
+    if(o.y < 0) o.y += H; else if(o.y >= H) o.y -= H;
+  }
+  function eachWrap(x,y,margin,fn){
+    fn(x,y);
+    const nearL = x<margin, nearR = x>W-margin, nearT = y<margin, nearB = y>H-margin;
+    if(nearL) fn(x+W,y);
+    if(nearR) fn(x-W,y);
+    if(nearT) fn(x,y+H);
+    if(nearB) fn(x,y-H);
+    if(nearL&&nearT) fn(x+W,y+H);
+    if(nearR&&nearT) fn(x-W,y+H);
+    if(nearL&&nearB) fn(x+W,y-H);
+    if(nearR&&nearB) fn(x-W,y-H);
+  }
+
+  // ---- stars ----
+  function ensureStars(){
+    stars = [];
+    const n = Math.min(320, Math.floor((W*H)/9000));
+    for(let i=0;i<n;i++){
+      const layer = 1 + Math.floor(Math.random()*3);
+      stars.push({
+        nx:Math.random(), ny:Math.random(),
+        s: layer===3 ? 2.2 : (layer===2?1.6:1),
+        layer,
+        c: Math.random()<0.12 ? '#9fd0ff' : '#ffffff'
+      });
+    }
+  }
+
+  // ---- ships ----
+  function makeShip(spec, side){
+    const col = side===1 ? '#43e8ff' : '#ff7a3c';
+    const y = H/2 + (Math.random()*90-45);
+    return {
+      spec, side, color: col,
+      x: side===1 ? Math.min(110, W*0.18) : Math.max(W-110, W*0.82),
+      y: Math.max(80, Math.min(H-80, y)),
+      vx:0, vy:0,
+      angle: side===1 ? 0 : Math.PI,
+      hull: spec.hull, maxHull: spec.hull,
+      energy: 100,
+      fireCd:0, specCd:0, shield:0, invuln:1.3, alive:true, hitFlash:0,
+      thrustOn:false, prevSpec:false, radius: spec.radius,
+      boostT:0, boostMax:0
+    };
+  }
+
+  function startRound(){
+    bullets = []; particles = []; shake = 0; flash = 0;
+    roundNo++;
+    ships = [ makeShip(api.pick1, 1), makeShip(api.pick2, 2) ];
+    roundState = 'fight'; roundTimer = 0;
+    tagNames();
+    showCenter('РАУНД ' + (wins1+wins2+1), '#cfe0ff', 1.3);
+  }
+
+  function enterCountdown(){ roundState = 'countdown'; cdT = 3.2; lastN = null; }
+
+  function beginMatch(){
+    if(rafId) cancelAnimationFrame(rafId);
+    window.removeEventListener('keydown', lobbyKeyHandler);
+    resize();
+    ensureStars();
+    window.__onResize = ()=>{ ensureStars(); };
+    startRound();
+    enterCountdown();
+    updateScoreboard();
+    lastT = 0; running = true;
+    if(matchSeries<1) matchSeries = 1;
+    pingMs = -1; pingTimer = 0; updatePing();
+    track('battle_start');
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function tagNames(){
+    const s1 = ships[0], s2 = ships[1];
+    if(mode==='online'){
+      el('p1-name').textContent = (netRole==='host' ? 'ИГРОК 1' : 'СОПЕРНИК') + ' · ' + s1.spec.name;
+      el('p2-name').textContent = (netRole==='host' ? 'СОПЕРНИК' : 'ВЫ') + ' · ' + s2.spec.name;
+      el('ctrl-p1').innerHTML = '<b>A</b>/<b>D</b> поворот · <b>W</b> тяга · <b>ПРОБЕЛ</b> огонь · <b>SHIFT</b> спец';
+      el('ctrl-p2').innerHTML = '<b>A</b>/<b>D</b> поворот · <b>W</b> тяга · <b>ПРОБЕЛ</b> огонь · <b>SHIFT</b> спец';
+      return;
+    }
+    el('p1-name').textContent = 'ИГРОК 1 · ' + s1.spec.name;
+    el('p2-name').textContent = (mode==='ai' ? 'ИИ' : 'ИГРОК 2') + ' · ' + s2.spec.name;
+    el('ctrl-p1').innerHTML = '<b>A</b>/<b>D</b> поворот · <b>W</b> тяга · <b>ПРОБЕЛ</b> огонь · <b>SHIFT</b> спец';
+    el('ctrl-p2').innerHTML = mode==='ai'
+      ? '<span style="color:#7d90b8">Противник управляется ИИ</span>'
+      : '<b>←</b>/<b>→</b> поворот · <b>↑</b> тяга · <b>ENTER</b> огонь · <b>/</b> спец';
+  }
+
+  // ---- center message ----
+  function showCenter(text, color, dur){
+    const m = el('center-msg');
+    m.textContent = text; m.style.color = color; m.style.opacity = 1;
+    centerTimer = dur;
+    if(online && netRole==='host') Net.send({t:'center', x:text, c:color, d:dur});
+  }
+
+  // ---- particles ----
+  function spark(x,y,color,n,spd,life){
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2, v = spd*(0.3+Math.random()*0.7);
+      particles.push({ x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v,
+        life:life*(0.5+Math.random()*0.5), max:life, color, size:1.5+Math.random()*2 });
+    }
+  }
+  function explode(s){
+    spark(s.x, s.y, s.color, 26, 320, 1.1);
+    spark(s.x, s.y, '#ffffff', 18, 220, 0.8);
+    spark(s.x, s.y, '#ffb15a', 16, 420, 1.3);
+    addRing(s.x, s.y, 110, s.color, 0.6);
+    addRing(s.x, s.y, 165, '#ffffff', 0.45);
+    shake = 22; flash = 0.9;
+    emitFx('boom', s.x, s.y, s.color);
+    sfx('boom');
+    if(isLocalShip(s)) vibrate([30,40,60]);
+  }
+
+  // ---- weapons ----
+  function fireBullet(s, o, ang, isSpecial){
+    bullets.push({
+      x: s.x + Math.cos(ang)*s.radius*1.3,
+      y: s.y + Math.sin(ang)*s.radius*1.3,
+      vx: Math.cos(ang)*o.speed + s.vx*0.35,
+      vy: Math.sin(ang)*o.speed + s.vy*0.35,
+      dmg:o.dmg, radius:o.radius, life:o.life,
+      side: s.side, color: s.color,
+      homing:o.homing||0, turn:o.turn||0, pierce:o.pierce||0,
+      special: !!isSpecial
+    });
+    spark(s.x + Math.cos(ang)*s.radius*1.4, s.y + Math.sin(ang)*s.radius*1.4, s.color, 3, 90, 0.25);
+    sfx('shot');
+  }
+
+  function tryFire(s){
+    const b = s.spec.bullet;
+    if(!s.alive || s.fireCd>0 || s.energy < b.energy) return;
+    s.energy -= b.energy; s.fireCd = b.cd;
+    fireBullet(s, b, s.angle, false);
+  }
+
+  function autoFire(s){
+    const b = s.spec.bullet;
+    if(!s.alive || s.fireCd>0 || s.energy < b.energy) return;
+    const enemy = ships[0]===s ? ships[1] : ships[0];
+    if(!enemy || !enemy.alive) return;
+    let dx = enemy.x - s.x, dy = enemy.y - s.y;
+    if(dx > W/2) dx -= W; else if(dx < -W/2) dx += W;
+    if(dy > H/2) dy -= H; else if(dy < -H/2) dy += H;
+    s.energy -= b.energy; s.fireCd = b.cd;
+    fireBullet(s, b, Math.atan2(dy,dx), false);
+  }
+
+  function trySpecial(s){
+    const sp = s.spec.special;
+    if(!s.alive || s.specCd>0 || s.energy < sp.energy) return;
+    s.energy -= sp.energy; s.specCd = sp.cd;
+    const b = s.spec.bullet;
+    switch(sp.type){
+      case 'fan3':
+        for(const da of [-0.26,0,0.26])
+          fireBullet(s, {dmg:b.dmg*1.2, speed:b.speed*1.05, radius:b.radius, life:b.life}, s.angle+da, true);
+        break;
+      case 'dash':
+        s.vx = Math.cos(s.angle)*820; s.vy = Math.sin(s.angle)*820;
+        s.boostT = 0.38; s.boostMax = 820;
+        s.invuln = Math.max(s.invuln, 0.9);
+        spark(s.x, s.y, s.color, 18, 280, 0.6);
+        addRing(s.x, s.y, 60, s.color, 0.4);
+        break;
+      case 'shield':
+        s.shield = 3.0;
+        addRing(s.x, s.y, s.radius+26, '#8ad4ff', 0.5);
+        spark(s.x, s.y, '#8ad4ff', 14, 160, 0.5);
+        break;
+      case 'fanMissile':
+        for(const da of [-0.6,-0.2,0.2,0.6])
+          fireBullet(s, {dmg:b.dmg, speed:b.speed, radius:b.radius, life:b.life, homing:b.homing, turn:b.turn}, s.angle+da, true);
+        break;
+      case 'nova': {
+        const n = 16;
+        for(let i=0;i<n;i++)
+          fireBullet(s, {dmg:b.dmg*0.9, speed:b.speed*0.85, radius:b.radius, life:b.life*1.15}, s.angle + i/n*Math.PI*2, true);
+        addRing(s.x, s.y, 130, s.color, 0.5);
+        break;
+      }
+      case 'snipe':
+        fireBullet(s, {dmg:22, speed:1500, radius:4.5, life:2.2, pierce:2}, s.angle, true);
+        addRing(s.x, s.y, 50, s.color, 0.35);
+        break;
+    }
+  }
+
+  function updateBullets(dt){
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      if(b.homing){
+        const tgt = b.side===1 ? ships[1] : ships[0];
+        if(tgt && tgt.alive){
+          const desired = Math.atan2(tgt.y-b.y, tgt.x-b.x);
+          const cur = Math.atan2(b.vy, b.vx);
+          let d = desired-cur;
+          while(d>Math.PI) d-=Math.PI*2; while(d<-Math.PI) d+=Math.PI*2;
+          const na = cur + Math.max(-b.turn*dt, Math.min(b.turn*dt, d));
+          const sp = Math.hypot(b.vx,b.vy);
+          b.vx = Math.cos(na)*sp; b.vy = Math.sin(na)*sp;
+        }
+      }
+      b.x += b.vx*dt; b.y += b.vy*dt;
+      wrapPos(b);
+      b.life -= dt;
+      if(b.life<=0) bullets.splice(i,1);
+    }
+  }
+
+  function addRing(x,y,maxR,color,life){ rings.push({x,y,r:6,maxR,life,max:life,color}); }
+  function updateRings(dt){
+    for(let i=rings.length-1;i>=0;i--){
+      const r = rings[i]; r.life -= dt;
+      r.r = r.maxR * (1 - Math.max(0,r.life)/r.max);
+      if(r.life<=0) rings.splice(i,1);
+    }
+  }
+  function drawRings(){
+    ctx.save();
+    for(const r of rings){
+      ctx.globalAlpha = Math.max(0, r.life/r.max);
+      ctx.strokeStyle = r.color; ctx.lineWidth = 3;
+      ctx.shadowColor = r.color; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+
+  function updateParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vx *= Math.pow(0.08, dt); p.vy *= Math.pow(0.08, dt);
+      p.life -= dt;
+      if(p.life<=0) particles.splice(i,1);
+    }
+  }
+
+  function damageShip(s, dmg, hx, hy, color){
+    if(!s.alive || s.invuln>0) return;
+    sfx('hit');
+    if(isLocalShip(s)) vibrate(20);
+    if(s.shield>0){
+      spark(hx,hy,'#8ad4ff',6,160,0.4); s.hitFlash = 1;
+      shake = Math.min(shake+3, 12); emitFx('hit', hx, hy, '#8ad4ff'); return;
+    }
+    s.hull -= dmg; s.hitFlash = 1;
+    spark(hx,hy,color,8,180,0.5); spark(hx,hy,'#ffffff',4,120,0.35);
+    emitFx('hit', hx, hy, color);
+    shake = Math.min(shake+4, 14); flash = Math.min(flash+0.22, 0.55);
+    if(s.hull<=0){ s.hull=0; s.alive=false; explode(s); }
+  }
+
+  function checkCollisions(){
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      for(const s of ships){
+        if(!s.alive || s.side===b.side) continue;
+        const dx = b.x-s.x, dy = b.y-s.y;
+        if(dx*dx+dy*dy < (s.radius+b.radius)*(s.radius+b.radius)){
+          damageShip(s, b.dmg, b.x, b.y, b.color);
+          if(b.pierce>0){ b.pierce--; }
+          else { bullets.splice(i,1); }
+          break;
+        }
+      }
+    }
+  }
+
+  function updateShip(s, dt){
+    const inp = inputFor(s);
+    s.angle += inp.rotate * s.spec.turnRate * dt;
+    s.thrustOn = !!inp.thrust && s.alive;
+    if(s.thrustOn){
+      s.vx += Math.cos(s.angle)*s.spec.accel*dt;
+      s.vy += Math.sin(s.angle)*s.spec.accel*dt;
+    }
+    const f = Math.pow(s.spec.drag, dt);
+    s.vx *= f; s.vy *= f;
+    const maxSp = s.boostT>0 ? s.boostMax : s.spec.maxSpeed;
+    const sp = Math.hypot(s.vx,s.vy);
+    if(sp > maxSp){ s.vx = s.vx/sp*maxSp; s.vy = s.vy/sp*maxSp; }
+    if(s.boostT>0) s.boostT = Math.max(0, s.boostT-dt);
+    s.x += s.vx*dt; s.y += s.vy*dt; wrapPos(s);
+    s.energy = Math.min(100, s.energy + ENERGY_REGEN*dt);
+    s.fireCd = Math.max(0, s.fireCd-dt);
+    s.specCd = Math.max(0, s.specCd-dt);
+    if(s.shield>0) s.shield = Math.max(0, s.shield-dt);
+    if(s.invuln>0) s.invuln = Math.max(0, s.invuln-dt);
+    if(s.hitFlash>0) s.hitFlash = Math.max(0, s.hitFlash-dt*3);
+    if(s.thrustOn) spark(s.x - Math.cos(s.angle)*s.radius, s.y - Math.sin(s.angle)*s.radius, s.color, 1, 60, 0.4);
+    if(inp.touch) autoFire(s); else if(inp.fire) tryFire(s);
+    if(inp.special && !s.prevSpec) trySpecial(s);
+    s.prevSpec = inp.special;
+  }
+
+  function separateShips(){
+    const a = ships[0], b = ships[1];
+    if(!a.alive || !b.alive) return;
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const d = Math.hypot(dx,dy) || 0.001;
+    const min = a.radius + b.radius + 4;
+    if(d < min){
+      const push = (min-d)/2, nx = dx/d, ny = dy/d;
+      a.x -= nx*push; a.y -= ny*push;
+      b.x += nx*push; b.y += ny*push;
+      wrapPos(a); wrapPos(b);
+    }
+  }
+
+  function checkRoundEnd(){
+    if(roundState!=='fight') return;
+    if(ships[0].alive && ships[1].alive) return;
+    roundState = 'over';
+    let winner = ships[0].alive ? 1 : (ships[1].alive ? 2 : 0);
+    if(winner===1) wins1++; else if(winner===2) wins2++;
+    const who = winner===1 ? 'ИГРОК 1' : (mode==='ai' ? 'ИИ' : 'ИГРОК 2');
+    showCenter(winner? ('ПОБЕДА · '+who) : 'НИЧЬЯ', winner===1?'#43e8ff':(winner===2?'#ff7a3c':'#cfe0ff'), 2.0);
+    roundTimer = 2.1;
+    updateScoreboard();
+  }
+
+  function updateScoreboard(){
+    el('scoreboard').innerHTML = wins1 + ' : ' + wins2 + '<small>СЧЁТ В МАТЧЕ</small>';
+  }
+
+  function goResult(){
+    const t = el('result-title'), sub = el('result-sub');
+    el('btn-rematch').style.display = '';
+    track('battle_end');
+    if(wins1>wins2) sfx('win');
+    el('result-series').textContent = 'Серия: ' + matchSeries;
+    if(mode==='online'){
+      if(wins1>wins2){ t.textContent='ПОБЕДА!'; t.className='big-title win'; }
+      else { t.textContent='ПОРАЖЕНИЕ'; t.className='big-title lose'; }
+      sub.textContent='Счёт матча '+wins1+':'+wins2;
+      Net.send({t:'over', s1:wins1, s2:wins2});
+      show('result');
+      return;
+    }
+    if(mode==='ai'){
+      if(wins1>wins2){ t.textContent='ПОБЕДА!'; t.className='big-title win'; sub.textContent='Вы выиграли матч со счётом '+wins1+':'+wins2; }
+      else { t.textContent='ПОРАЖЕНИЕ'; t.className='big-title lose'; sub.textContent='ИИ победил со счётом '+wins2+':'+wins1; }
+    } else {
+      if(wins1>wins2){ t.textContent='ПОБЕДА ИГРОК 1'; t.className='big-title win'; }
+      else { t.textContent='ПОБЕДА ИГРОК 2'; t.className='big-title lose'; }
+      sub.textContent='Счёт матча '+wins1+':'+wins2;
+    }
+    show('result');
+  }
+
+  // ---- online ----
+  function updateLobby(){
+    const l = el('lobby'); if(!l) return;
+    const act = el('lobby-actions');
+    if(mode!=='online'){ l.style.display='none'; if(act) act.style.display='none'; return; }
+    l.style.display = 'block';
+    if(act){
+      act.style.display = 'flex';
+      const rb = el('btn-ready');
+      if(rb){ rb.disabled = !!myReady; rb.textContent = myReady ? 'ГОТОВЫ · ЖДЁМ СОПЕРНИКА' : 'ГОТОВ'; }
+    }
+    const mine = pick1 ? shipById(pick1).name : 'ещё не выбран';
+    const opp = pick2 ? shipById(pick2).name : 'ещё не выбрал';
+    let txt = 'Ваш корабль: <b>'+mine+'</b> &nbsp;·&nbsp; Соперник: <b>'+opp+'</b>';
+    if(myReady) txt += '<br>Вы готовы. Ждём соперника…';
+    l.innerHTML = txt;
+  }
+  function startOnline(role){
+    online = true; netRole = role; mode = 'online';
+    pick1 = null; pick2 = null; wins1 = 0; wins2 = 0;
+    myReady = false; oppReady = false; lobbyStarted = false;
+    netIn = { r:0, t:false, f:false, s:false }; roundNo = 0; netRd = 0; netTimer = 0; fxQueue = []; netBulletCount = 0;
+    pingMs = -1; pingTimer = 0; updatePing();
+    if(rafId){ cancelAnimationFrame(rafId); rafId = null; } running = false;
+    buildSelectGrid(el('grid1'), 1);
+    el('select1-sub').textContent = 'Выберите свой корабль';
+    updateLobby();
+    show('select1');
+    window.removeEventListener('keydown', lobbyKeyHandler);
+    window.addEventListener('keydown', lobbyKeyHandler);
+  }
+  function ready(){
+    if(!online || mode!=='online') return;
+    if(!el('screen-select1').classList.contains('active')) return;
+    if(!pick1){ pick1 = SHIPS[0].id; Net.send({t:'pick', ship:pick1}); }
+    if(!myReady){ myReady = true; Net.send({t:'ready'}); }
+    updateLobby(); hostMaybeStart();
+  }
+  function lobbyKeyHandler(){ ready(); }
+  function hostMaybeStart(){
+    if(netRole!=='host' || lobbyStarted) return;
+    if(myReady && oppReady && pick1 && pick2){
+      lobbyStarted = true; Net.send({t:'go'}); show('battle'); beginMatch();
+    }
+  }
+  function emitFx(k, x, y, col){ if(online && netRole==='host') fxQueue.push({k, x, y, col}); }
+  function sendState(){
+    if(ships.length<2) return;
+    const sh = ships.map(s=>({ ty:s.spec.id, x:s.x, y:s.y, a:s.angle, h:s.hull, e:s.energy, al:s.alive, sd:s.shield, iv:s.invuln, th:s.thrustOn, hf:s.hitFlash }));
+    const bu = bullets.map(b=>({ x:b.x, y:b.y, r:b.radius, c:b.color }));
+    const fx = fxQueue; fxQueue = [];
+    Net.send({ t:'state', w:W, h:H, rd:roundNo, s1:wins1, s2:wins2, ph:roundState, sh, bu, fx });
+  }
+  function applyState(d){
+    if(!d.sh || d.sh.length<2) return;
+    const sx = W/d.w, sy = H/d.h, ss = (sx+sy)/2;
+    let snap = false;
+    if(d.rd !== netRd){ netRd = d.rd; bullets = []; particles = []; rings = []; netBulletCount = 0; snap = true; }
+    const need = ships.length<2 || !ships[0] || !ships[1] || ships[0].spec.id!==d.sh[0].ty || ships[1].spec.id!==d.sh[1].ty;
+    if(need){ ships = [ makeShip(shipById(d.sh[0].ty), 1), makeShip(shipById(d.sh[1].ty), 2) ]; tagNames(); }
+    for(let i=0;i<2;i++){
+      const s = ships[i], n = d.sh[i]; if(!s || !n) continue;
+      const tx = n.x*sx, ty = n.y*sy;
+      if(need || snap || s._tx===undefined){ s.x = tx; s.y = ty; s.angle = n.a; }
+      if(isLocalShip(s)){
+        if(s.alive && n.h < s.hull - 0.5) vibrate(20);
+        if(s.alive && !n.al) vibrate([30,40,60]);
+      }
+      s._tx = tx; s._ty = ty; s._ta = n.a;
+      s.hull = n.h; s.energy = n.e;
+      s.alive = n.al; s.shield = n.sd; s.invuln = n.iv; s.thrustOn = n.th; s.hitFlash = n.hf;
+      s.radius = s.spec.radius; s.maxHull = s.spec.hull;
+    }
+    bullets = (d.bu||[]).map(b=>({ x:b.x*sx, y:b.y*sy, radius:b.r*ss, color:b.c }));
+    wins1 = d.s1; wins2 = d.s2; roundState = d.ph;
+    updateScoreboard();
+    if(d.fx && d.fx.length){
+      let boomSeen = false;
+      for(const f of d.fx){
+        const X = f.x*sx, Y = f.y*sy;
+        if(f.k==='boom'){
+          spark(X,Y,f.col,26,320,1.1); spark(X,Y,'#ffffff',18,220,0.8); spark(X,Y,'#ffb15a',16,420,1.3);
+          addRing(X,Y,90,f.col,0.5); boomSeen = true;
+        } else { spark(X,Y,f.col,6,140,0.4); sfx('hit'); }
+      }
+      if(boomSeen) sfx('boom');
+    }
+    const bc = (d.bu||[]).length;
+    if(bc > netBulletCount) sfx('shot');
+    netBulletCount = bc;
+  }
+  function showGuestResult(s1, s2){
+    const t = el('result-title'), sub = el('result-sub');
+    el('btn-rematch').style.display = '';
+    track('battle_end');
+    if(s2>s1) sfx('win');
+    el('result-series').textContent = 'Серия: ' + matchSeries;
+    if(s2>s1){ t.textContent='ПОБЕДА!'; t.className='big-title win'; }
+    else { t.textContent='ПОРАЖЕНИЕ'; t.className='big-title lose'; }
+    sub.textContent='Счёт матча '+s1+':'+s2;
+    running = false;
+    show('result');
+  }
+  function netData(d){
+    if(!d || typeof d!=='object') return;
+    switch(d.t){
+      case 'pick': pick2 = d.ship; updateLobby(); hostMaybeStart(); break;
+      case 'ready': oppReady = true; updateLobby(); hostMaybeStart(); break;
+      case 'go': if(netRole==='guest' && !running){ show('battle'); beginMatch(); } break;
+      case 'input': if(netRole==='host' && d.k) netIn = { r:(d.k.r|0), t:!!d.k.t, f:!!d.k.f, s:!!d.k.s, tc: d.k.tc?1:0 }; break;
+      case 'state': if(netRole==='guest') applyState(d); break;
+      case 'center': if(netRole==='guest') showCenter(d.x, d.c, d.d); break;
+      case 'ping': Net.send({t:'pong', ts:d.ts}); break;
+      case 'pong': pingMs = Date.now() - d.ts; updatePing(); break;
+      case 'over': if(netRole==='guest') showGuestResult(d.s1, d.s2); break;
+      case 'again': matchSeries++; startOnline(netRole); break;
+      case 'bye': netDisconnect(); break;
+    }
+  }
+  function netDisconnect(){
+    online = false; running = false;
+    window.removeEventListener('keydown', lobbyKeyHandler);
+    const t = el('result-title'), sub = el('result-sub');
+    t.textContent = 'СОПЕРНИК ОТКЛЮЧИЛСЯ'; t.className = 'big-title lose';
+    sub.textContent = 'Соединение потеряно';
+    el('btn-rematch').style.display = 'none';
+    el('result-series').textContent = '';
+    pingMs = -1; updatePing();
+    show('result');
+  }
+
+  // ---- update / render ----
+  function update(dt){
+    const guest = online && netRole==='guest';
+    if(guest){
+      const kd = Math.min(1, dt*14);
+      for(const s of ships){
+        if(s._tx===undefined) continue;
+        let dx = s._tx - s.x; if(dx > W/2) dx -= W; else if(dx < -W/2) dx += W;
+        let dy = s._ty - s.y; if(dy > H/2) dy -= H; else if(dy < -H/2) dy += H;
+        s.x += dx*kd; s.y += dy*kd; wrapPos(s);
+        s.angle += normAngle(s._ta - s.angle)*kd;
+      }
+      let k;
+      if(isTouch && mode!=='vs'){
+        const ls = ships[1];
+        let r = 0;
+        if(ls && touchInput.active){ const d = normAngle(touchInput.aim - ls.angle); r = Math.abs(d)>0.06 ? Math.sign(d) : 0; }
+        k = { r, t:touchInput.thrust, f:false, s:touchInput.special, tc:1 };
+      } else {
+        k = { r:(keys[P1K.L]?-1:0)+(keys[P1K.R]?1:0), t:!!keys[P1K.T], f:held(P1K.F), s:held(P1K.S) };
+      }
+      Net.send({ t:'input', k });
+    } else if(roundState==='countdown'){
+      if(!(online && netRole==='guest')){
+        cdT -= dt;
+        const n = Math.max(1, Math.min(3, Math.ceil(cdT)));
+        if(n!==lastN){ lastN = n; showCenter(String(n), '#cfe0ff', 1.0); }
+        if(cdT<=0){ roundState = 'fight'; showCenter('БОЙ!', '#43e8ff', 0.9); }
+      }
+    } else if(roundState==='fight'){
+      for(const s of ships) if(s.alive) updateShip(s, dt);
+      separateShips();
+      updateBullets(dt);
+      checkCollisions();
+      checkRoundEnd();
+    } else if(roundState==='over'){
+      updateBullets(dt);
+      roundTimer -= dt;
+      if(roundTimer<=0){
+        if(wins1>=2 || wins2>=2){ running=false; goResult(); }
+        else startRound();
+      }
+    }
+    updateParticles(dt);
+    updateRings(dt);
+    if(shake>0) shake = Math.max(0, shake - dt*40);
+    if(flash>0) flash = Math.max(0, flash - dt*2.4);
+    if(centerTimer>0){ centerTimer -= dt; if(centerTimer<=0) el('center-msg').style.opacity=0; }
+    touchInput.special = false;
+  }
+
+  function drawStars(){
+    let cx=0, cy=0;
+    if(ships.length){
+      cx = (ships[0].x+ships[1].x)/2 - W/2;
+      cy = (ships[0].y+ships[1].y)/2 - H/2;
+    }
+    for(const st of stars){
+      const par = st.layer*0.05;
+      let x = st.nx*W - cx*par, y = st.ny*H - cy*par;
+      x = ((x%W)+W)%W; y = ((y%H)+H)%H;
+      ctx.globalAlpha = 0.2 + st.layer*0.25;
+      ctx.fillStyle = st.c;
+      ctx.fillRect(x, y, st.s, st.s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawArena(){
+    ctx.strokeStyle = 'rgba(80,110,190,0.22)';
+    ctx.lineWidth = 2; ctx.strokeRect(1,1,W-2,H-2);
+    ctx.strokeStyle = 'rgba(67,232,255,0.55)';
+    ctx.lineWidth = 3; const c = 30;
+    const corner=(x,y,dx,dy)=>{ ctx.beginPath(); ctx.moveTo(x+dx*c,y); ctx.lineTo(x,y); ctx.lineTo(x,y+dy*c); ctx.stroke(); };
+    ctx.shadowColor='#43e8ff'; ctx.shadowBlur=12;
+    corner(2,2,1,1); corner(W-2,2,-1,1); corner(2,H-2,1,-1); corner(W-2,H-2,-1,-1);
+    ctx.shadowBlur=0;
+  }
+
+  function drawBullets(){
+    ctx.save();
+    for(const b of bullets){
+      ctx.shadowColor = b.color; ctx.shadowBlur = 14; ctx.fillStyle = b.color;
+      eachWrap(b.x, b.y, 30, (px,py)=>{
+        ctx.beginPath(); ctx.arc(px,py,b.radius,0,Math.PI*2); ctx.fill();
+      });
+    }
+    ctx.restore();
+  }
+
+  function drawShips(){
+    const t = performance.now()/1000;
+    for(const s of ships){
+      if(!s.alive) continue;
+      const blink = s.invuln>0 ? (0.35 + 0.65*Math.abs(Math.sin(t*18))) : 1;
+      eachWrap(s.x, s.y, 60, (px,py)=>{
+        ctx.globalAlpha = blink;
+        // thruster flame
+        if(s.thrustOn){
+          ctx.save(); ctx.translate(px,py); ctx.rotate(s.angle);
+          const fl = 16 + Math.random()*12;
+          const g2 = ctx.createLinearGradient(0,0,-s.radius-fl,0);
+          g2.addColorStop(0, s.color); g2.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.beginPath();
+          ctx.moveTo(-s.radius*0.6, -s.radius*0.35);
+          ctx.lineTo(-s.radius*0.6, s.radius*0.35);
+          ctx.lineTo(-s.radius-fl, 0);
+          ctx.closePath();
+          ctx.fillStyle = g2; ctx.shadowColor = s.color; ctx.shadowBlur = 16; ctx.fill();
+          ctx.restore();
+        }
+        const col = s.hitFlash>0 ? '#ffffff' : s.color;
+        drawShipShape(ctx, s.spec.shape, px, py, s.angle, s.radius, col, true);
+        // shield
+        if(s.shield>0){
+          ctx.save();
+          ctx.strokeStyle = 'rgba(120,200,255,'+(0.4+0.4*Math.abs(Math.sin(t*10)))+')';
+          ctx.lineWidth = 3; ctx.shadowColor='#8ad4ff'; ctx.shadowBlur=18;
+          ctx.beginPath(); ctx.arc(px,py,s.radius+9,0,Math.PI*2); ctx.stroke();
+          ctx.restore();
+        }
+      });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawParticles(){
+    ctx.save();
+    for(const p of particles){
+      const a = Math.max(0, p.life/p.max);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size*a+0.4, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+
+  function render(){
+    const sx = (Math.random()*2-1)*shake, sy = (Math.random()*2-1)*shake;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.fillStyle = '#04060f'; ctx.fillRect(-30,-30,W+60,H+60);
+    drawStars(); drawArena(); drawBullets(); drawShips(); drawRings(); drawParticles();
+    ctx.restore();
+    if(flash>0){ ctx.fillStyle = 'rgba(200,230,255,'+(flash*0.5)+')'; ctx.fillRect(0,0,W,H); }
+  }
+
+  function updateHUD(){
+    if(!ships.length) return;
+    const s1=ships[0], s2=ships[1];
+    el('p1-hull').style.width = (s1.hull/s1.maxHull*100)+'%';
+    el('p1-en').style.width = s1.energy+'%';
+    el('p2-hull').style.width = (s2.hull/s2.maxHull*100)+'%';
+    el('p2-en').style.width = s2.energy+'%';
+  }
+
+  function loop(t){
+    if(!running) return;
+    rafId = requestAnimationFrame(loop);
+    if(!lastT) lastT = t;
+    let dt = (t-lastT)/1000; lastT = t;
+    dt = Math.min(dt, 0.033);
+    if(!el('screen-battle').classList.contains('active')) return;
+    update(dt); render(); updateHUD();
+    if(online){
+      pingTimer += dt; if(pingTimer >= 1){ pingTimer = 0; Net.send({t:'ping', ts:Date.now()}); }
+      updatePing();
+    }
+    if(online && netRole==='host'){ netTimer += dt; if(netTimer >= 1/30){ netTimer = 0; sendState(); } }
+  }
+
+  // ---- public API ----
+  const api = {
+    startMode(m){
+      online = false;
+      mode = m;
+      matchSeries = 0;
+      pick1 = null; pick2 = null; wins1 = 0; wins2 = 0;
+      document.getElementById('select2-title').textContent = 'ВЫБОР КОРАБЛЯ · ИГРОК 1';
+      buildSelectGrid(document.getElementById('grid1'), 1);
+      buildSelectGrid(document.getElementById('grid2'), 2);
+      updateLobby();
+      show('select1');
+    },
+    rematch(){
+      track('rematch');
+      matchSeries++;
+      if(online){ Net.send({t:'again'}); startOnline(netRole); return; }
+      wins1 = 0; wins2 = 0;
+      show('battle');
+      if(api.beginMatch) api.beginMatch();
+    },
+    toMenu(){
+      matchSeries = 0;
+      if(mode==='online'){
+        if(online) Net.send({t:'bye'});
+        online = false; running = false;
+        window.removeEventListener('keydown', lobbyKeyHandler);
+        Net.toMenu();
+        return;
+      }
+      show('menu');
+    },
+    beginMatch, ready,
+    startOnline, netData, netDisconnect,
+    show, SHIPS, shipById, drawShipShape, SHAPES,
+    get mode(){ return mode; },
+    get pick1(){ return shipById(pick1); },
+    get pick2(){ return shipById(pick2); },
+    get wins1(){ return wins1; },
+    get wins2(){ return wins2; },
+    get canvas(){ return canvas; },
+    get ctx(){ return ctx; },
+    get W(){ return W; },
+    get H(){ return H; }
+  };
+
+  // ---- init ----
+  function init(){
+    track('open');
+    canvas = el('game');
+    ctx = canvas.getContext('2d');
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', ()=>{ resize(); setTimeout(resize, 250); });
+    if(isTouch){
+      document.body.classList.add('touch');
+      window.addEventListener('pointerdown', onTouchDown, {passive:false});
+      window.addEventListener('pointermove', onTouchMove, {passive:false});
+      window.addEventListener('pointerup', onTouchUp);
+      window.addEventListener('pointercancel', onTouchUp);
+      const bs = el('btn-special');
+      if(bs) bs.addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); touchInput.special = true; });
+    }
+    resize();
+    buildSelectGrid(el('grid1'), 1);
+    buildSelectGrid(el('grid2'), 2);
+    show('menu');
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  api._resize = resize;
+  return api;
+})();
+
+/* ===================== NETWORK — PeerJS skeleton ===================== */
+const Net = (function(){
+  const el = id => document.getElementById(id);
+  let peer = null, conn = null, room = null, connOpen = false, connTimer = null;
+  function uid(){ const a='abcdefghijklmnopqrstuvwxyz0123456789'; let s=''; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*36)]; return 'duel-'+s; }
+  function status(t, cls){ const n=el('net-status'); n.textContent=t; n.className='net-status'+(cls?' '+cls:''); }
+  const FALLBACK_URL='https://localhost/duel';  // на своём хостинге фолбэк не нужен, realBase() всегда вернёт текущий https-адрес
+  function isHttp(s){ return typeof s==='string' && /^https?:\/\//i.test(s); }
+  function ctxStrings(){
+    const out=[];
+    try{
+      const ci = window.contextInfo;
+      if(ci && typeof ci==='object'){
+        const fields=['url','href','pageUrl','currentUrl','shareUrl','link'];
+        fields.forEach(k=>{ if(isHttp(ci[k])) out.push(ci[k]); });
+        ['webpage','file','board','context'].forEach(k=>{
+          const o=ci[k];
+          if(o && typeof o==='object'){ fields.forEach(f=>{ if(isHttp(o[f])) out.push(o[f]); }); }
+        });
+        const seen=new Set();
+        (function rec(o,depth){
+          if(!o || depth>3 || typeof o!=='object') return;
+          if(seen.has(o)) return; seen.add(o);
+          if(Array.isArray(o)){ o.forEach(v=>rec(v,depth+1)); return; }
+          for(const k in o){ let v; try{ v=o[k]; }catch(e){ continue; }
+            if(typeof v==='string'){ if(isHttp(v)) out.push(v); }
+            else if(v && typeof v==='object'){ rec(v,depth+1); }
+          }
+        })(ci,0);
+      }
+    }catch(e){}
+    return out;
+  }
+  function isDirectPage(s){
+    if(!isHttp(s)) return false;
+    const clean = String(s).split('#')[0].split('?')[0];
+    if(clean.indexOf('/artifacts/')>=0 && /\/index\.html?$/i.test(clean)) return true;
+    if(/\.html?$/i.test(clean)) return true;
+    return false;
+  }
+  function realBase(){
+    try{ if(location.protocol==='http:' || location.protocol==='https:') return location.href.split('#')[0]; }catch(e){}
+    const PREF='01a0f90b-18db-7893-9409-c24149671f14';
+    const strings=ctxStrings();
+    try{ if(isHttp(document.referrer)) strings.push(document.referrer); }catch(e){}
+    let direct=null, best=null, any=null;
+    strings.forEach(s=>{ if(!isHttp(s)) return; if(!any) any=s; if(!best && s.indexOf(PREF)>=0) best=s; if(!direct && isDirectPage(s)) direct=s; });
+    let found = direct || best || any;
+    if(!found){ try{ if(window.parent && window.parent!==window) found=window.parent.location.href; }catch(e){} }
+    if(!found){ try{ found=window.top.location.href; }catch(e){} }
+    found = (found ? String(found) : '').split('#')[0];
+    if(!isHttp(found)) found = FALLBACK_URL;
+    return found;
+  }
+  function roomUrl(){ const b=realBase(); return b + '#r=' + room; }
+  function shareUrl(){
+    const b=realBase();
+    if(isHttp(b)) return b + '#r=' + room;
+    return 'Космическая Дуэль — код комнаты: ' + room + '. Игра: ' + FALLBACK_URL;
+  }
+  function roomCodeFrom(text){
+    if(typeof text!=='string' || !text) return null;
+    let m = text.match(/#r=([^&\s]+)/) || text.match(/[?&]r=([^&\s]+)/) || text.match(/(duel-[a-z0-9]{6})/i);
+    if(!m) return null;
+    try{ return decodeURIComponent(m[1]); }catch(e){ return m[1]; }
+  }
+  function detectRoom(){
+    if(location.hash){ const h=roomCodeFrom(location.hash); if(h) return h; }
+    const arr=ctxStrings();
+    try{ if(document.referrer) arr.push(document.referrer); }catch(e){}
+    try{ arr.push(realBase()); }catch(e){}
+    for(let i=0;i<arr.length;i++){ const c=roomCodeFrom(arr[i]); if(c) return c; }
+    return null;
+  }
+  function layout(kind){
+    const host = kind==='host';
+    el('net-title').textContent = host ? 'СОЗДАНИЕ ИГРЫ' : 'ПОДКЛЮЧЕНИЕ';
+    el('net-sub').textContent = host ? 'ВЫ — ХОСТ' : 'ВЫ — ГОСТЬ';
+    el('net-host').style.display = host ? 'flex' : 'none';
+    const jw = el('net-join-wrap'); if(jw) jw.style.display = 'none';
+    const qw = el('net-qr-wrap'); if(qw) qw.style.display = host ? 'flex' : 'none';
+    const url = roomUrl();
+    const inp = el('net-link'); if(inp) inp.value = url;
+    const a = el('net-link-a');
+    if(a){ a.href = url; a.textContent = url; a.style.display='block'; a.setAttribute('aria-label','Открыть лобби: '+url); }
+    el('net-hint').innerHTML = 'Код комнаты: <span class="net-code">'+room+'</span>. Отправьте другу ссылку или код комнаты. Друг открывает игру и, если нужно, вводит код в поле «Войти по коду».';
+    if(host){ drawQR(); setTimeout(drawQR, 400); }
+  }
+  function drawQR(){
+    const cv = el('net-qr'), wrap = el('net-qr-wrap'); if(!cv || !wrap) return;
+    const url = roomUrl();
+    const img = el('net-qr-img');
+    cv.style.display = 'block'; if(img) img.style.display = 'none';
+    if(window.QRCode && window.QRCode.toCanvas){
+      try{
+        window.QRCode.toCanvas(cv, url, { width:200, margin:1, color:{ dark:'#0a1024', light:'#ffffff' } }, err => { if(err) drawQRFallback(url); });
+        return;
+      }catch(e){}
+    }
+    drawQRFallback(url);
+  }
+  function drawQRFallback(url){
+    const cv = el('net-qr'), wrap = el('net-qr-wrap'), cap = el('net-qr-cap'); if(!wrap) return;
+    if(cv) cv.style.display = 'none';
+    let img = el('net-qr-img');
+    if(!img){
+      img = document.createElement('img'); img.id = 'net-qr-img'; img.width = 200; img.height = 200; img.alt = 'QR комнаты';
+      wrap.insertBefore(img, cap || null);
+    }
+    img.style.display = 'block';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+  }
+  function clear(){ if(conn){ try{ conn.close(); }catch(e){} } conn=null; if(peer){ try{ peer.destroy(); }catch(e){} } peer=null; connOpen=false; clearTimeout(connTimer); }
+  function onClose(){ if(online){ Game.netDisconnect(); } else { status('Соперник отключился','bad'); } }
+  function onError(){ if(online){ Game.netDisconnect(); } else { status('Ошибка соединения','bad'); } }
+  function send(obj){ if(conn){ try{ conn.send(obj); }catch(e){} } }
+  function bannerOn(){ const b=el('rtc-banner'); if(b) b.classList.add('show'); }
+  function bannerOff(){ const b=el('rtc-banner'); if(b) b.classList.remove('show'); }
+  function startConnTimeout(){ clearTimeout(connTimer); connTimer = setTimeout(()=>{ if(!connOpen && (isTelegram || !rtcOk)) bannerOn(); }, 8000); }
+  function markOpen(){ connOpen = true; clearTimeout(connTimer); bannerOff(); }
+  function openIn(){ try{ window.open(location.href, '_blank'); }catch(e){} }
+  function bind(c){
+    c.on('data', d=>{ try{ Game.netData(d); }catch(e){} });
+    c.on('close', onClose);
+    c.on('error', onError);
+  }
+  function mkPeer(id){
+      const ICE = { iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=udp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ] };
+      try{ peer = id ? new Peer(id, ICE) : new Peer(null, ICE); }
+    catch(e){ onError(); return null; }
+    peer.on('error', onError);
+    peer.on('disconnected', ()=>{ if(!(conn && conn.open)) onClose(); });
+    return peer;
+  }
+  function host(){
+    clear(); room = uid();
+    layout('host'); Game.show('net'); status('Ожидаем соперника…');
+    matchSeries = 0; track('room_create');
+    startConnTimeout();
+    const p = mkPeer(room); if(!p) return;
+    p.on('connection', c=>{ conn = c; bind(c); markOpen(); status('Соперник подключён','ok'); Game.startOnline('host'); });
+  }
+  function guest(r){
+    clear(); room = r;
+    layout('guest'); Game.show('net'); status('Подключение к сопернику…');
+    matchSeries = 0; track('join_link');
+    if(!rtcOk) bannerOn();
+    startConnTimeout();
+    if(typeof Peer === 'undefined' || !rtcOk){ status('Не удалось загрузить сетевой модуль. Проверьте интернет и попробуйте снова','bad'); return; }
+    const p = mkPeer(); if(!p) return;
+    p.on('open', ()=>{ try{ conn = p.connect(room, {reliable:true}); bind(conn); conn.on('open', ()=>{ markOpen(); status('Соперник подключён','ok'); Game.startOnline('guest'); }); }catch(e){ onError(); } });
+  }
+  function enter(){
+    if(!rtcOk) bannerOn();
+    if(typeof Peer === 'undefined' || !rtcOk){
+      el('net-host').style.display='none';
+      el('net-title').textContent='ИГРА ПО ИНТЕРНЕТУ';
+      el('net-sub').textContent='';
+      Game.show('net');
+      status('Не удалось загрузить сетевой модуль. Проверьте интернет и попробуйте снова','bad');
+      return;
+    }
+    host();
+  }
+  function toMenu(){ bannerOff(); clear(); matchSeries = 0; Game.show('menu'); }
+  function tip(t){ const e=el('net-tip'); if(e) e.textContent = t || ''; }
+  function enterJoin(){
+    clear();
+    bannerOff();
+    el('net-host').style.display='none';
+    const qw = el('net-qr-wrap'); if(qw) qw.style.display='none';
+    const jw = el('net-join-wrap'); if(jw) jw.style.display='flex';
+    el('net-title').textContent='ВХОД В ЛОББИ';
+    el('net-sub').textContent='ВЫ — ГОСТЬ';
+    const h=el('net-hint'); if(h) h.innerHTML='Вставьте ссылку или код комнаты и нажмите «ВОЙТИ».';
+    const jtip=el('net-join-tip'); if(jtip) jtip.textContent='';
+    Game.show('net');
+    status('Введите код комнаты');
+    try{ const ji=el('net-join'); if(ji) ji.focus(); }catch(e){}
+  }
+  function joinFromUI(){
+    const ji = el('net-join');
+    const code = roomCodeFrom(ji ? ji.value : '');
+    const jtip = el('net-join-tip');
+    if(code){ if(jtip) jtip.textContent=''; guest(code); }
+    else { if(jtip) jtip.textContent='Не удалось найти код комнаты'; }
+  }
+  function copyCode(){ if(room) copy(room); }
+  function currentUrl(){ return room ? shareUrl() : realBase(); }
+  function copy(src){
+    const inp=el('net-link');
+    const text = (typeof src==='string' && src) ? src : currentUrl();
+    const btn=el('net-copy'); const old=btn?btn.textContent:'';
+    const done=()=>{ tip(''); if(btn){ btn.textContent='Скопировано'; setTimeout(()=>{ btn.textContent=old; }, 1400); } };
+    const fail=()=>{ tip('Не удалось скопировать — выделите ссылку и скопируйте вручную.'); if(inp){ try{ inp.focus(); inp.select(); if(inp.setSelectionRange) inp.setSelectionRange(0,99999); }catch(e){} } };
+    const fb=()=>{ try{
+      const ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly','');
+      ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.left='0'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select(); if(ta.setSelectionRange) ta.setSelectionRange(0,99999);
+      const ok=document.execCommand('copy'); document.body.removeChild(ta); ok?done():fail();
+    }catch(e){ fail(); } };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, fb); }
+      else { fb(); }
+    }catch(e){ fb(); }
+  }
+  function share(){
+    const url = currentUrl();
+    if(navigator.share){ try{ const pr = navigator.share({ title:'Космическая Дуэль', text:'Играем в Космическую Дуэль', url }); if(pr && pr.catch) pr.catch(()=>copy(url)); }catch(e){ copy(url); } }
+    else copy(url);
+  }
+  function init(){
+    const code = detectRoom();
+    if(code) guest(code);
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  return { enter, guest, host, toMenu, copy, copyCode, share, send, openIn, enterJoin, joinFromUI, hideBanner: bannerOff, get room(){ return room; } };
+})();
+</script>
+</body>
+</html>
