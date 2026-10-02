@@ -300,9 +300,7 @@
         <div class="net-hint" id="net-hint-page">Открывайте и делитесь ссылкой прямо со страницы игры — она запускается в браузере, без встроенного просмотра.</div>
       </div>
       <div class="net-btns">
-        <button class="btn small" id="net-copy" type="button" onclick="Net.copy()">СКОПИРОВАТЬ</button>
-        <button class="btn small" id="net-copy-code" type="button" onclick="Net.copyCode()">КОПИРОВАТЬ КОД</button>
-        <button class="btn small" id="net-share" type="button" onclick="Net.share()">ПОДЕЛИТЬСЯ</button>
+        <button class="btn small" id="net-copy" type="button" onclick="Net.copy()">ПОЗВАТЬ СОПЕРНИКА — СКОПИРОВАТЬ ССЫЛКУ</button>
       </div>
       <div class="net-hint" id="net-hint"></div>
       <div class="net-tip" id="net-tip"></div>
@@ -1663,13 +1661,11 @@ const Net = (function(){
     c.on('error', onError);
   }
   function mkPeer(id){
+      // Open Relay (metered) признан мёртвым 02.10.2026 — убраны.
+      // TURN-релей: если прямое P2P не пробивается, нужен свой coturn (FirstVDS).
       const ICE = { iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=udp', username: 'openrelayproject', credential: 'openrelayproject' }
+        { urls: 'stun:stun1.l.google.com:19302' }
       ] };
       try{ peer = id ? new Peer(id, ICE) : new Peer(null, ICE); }
     catch(e){ onError(); return null; }
